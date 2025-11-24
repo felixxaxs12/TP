@@ -1,10 +1,15 @@
 package view;
 
-import data_access.RoutingDataAccessObject;
 import data_access.OSMDataAccessObject;
+import interface_adapter.generate_route.GenerateRouteController;
+import interface_adapter.itinerary.ItineraryState;
+import interface_adapter.itinerary.ItineraryViewModel;
+import interface_adapter.remove_marker.RemoveMarkerController;
 import interface_adapter.search.SearchController;
 import interface_adapter.search.SearchState;
 import interface_adapter.search.SearchViewModel;
+import interface_adapter.reorder.ReorderController;
+import use_case.itinerary.ItineraryDataAccessInterface;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
@@ -30,14 +35,17 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
     private final JButton search =  new JButton("Search");
     private final JButton routeButton = new JButton("Route");
     private transient SearchController searchController = null;
+    private transient RemoveMarkerController removeMarkerController = null;
+    private transient ReorderController reorderController = null;
+    private transient GenerateRouteController generateRouteController = null;
     private final MapPanel mapPanel = new MapPanel();
 
-    private RoutingDataAccessObject routingDao = null;
+    private final ItineraryDataAccessInterface itineraryDataAccess;
+    private final ItineraryViewModel itineraryViewModel;
     private OSMDataAccessObject osmDao = null;
 
     private final DefaultListModel<String> stopsListModel = new DefaultListModel<>();
     private final JList<String> stopsList = new JList<>(stopsListModel);
-    private final List<GeoPosition> stopPositions = new ArrayList<>();
     private final List<entity.Location> currentSuggestions = new ArrayList<>();
 
     // progress UI for rerouting
@@ -56,9 +64,13 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
     /**
      * Construct the SearchView JPanel from its SearchViewModel (contain states of the search view)
      */
-    public SearchView(SearchViewModel searchViewModel) {
+    public SearchView(SearchViewModel searchViewModel, ItineraryViewModel itineraryViewModel,
+                     ItineraryDataAccessInterface itineraryDataAccess) {
         this.viewName = searchViewModel.getViewName();
+        this.itineraryViewModel = itineraryViewModel;
+        this.itineraryDataAccess = itineraryDataAccess;
         searchViewModel.addPropertyChangeListener(this);
+        itineraryViewModel.addPropertyChangeListener(this);
 
         search.addActionListener(
                 evt -> {
@@ -72,7 +84,7 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
                 }
         );
 
-        routeButton.addActionListener(evt -> computeAndDisplayRoute());
+        routeButton.addActionListener(evt -> triggerRouteComputation());
 
         searchInputField.getDocument().addDocumentListener(new DocumentListener() {
 
@@ -569,8 +581,9 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 if (evt.getClickCount() == 2) {
                     int idx = stopsList.locationToIndex(evt.getPoint());
-                    if (idx >= 0 && idx < stopPositions.size()) {
-                        GeoPosition p = stopPositions.get(idx);
+                    List<GeoPosition> stops = itineraryDataAccess.getStops();
+                    if (idx >= 0 && idx < stops.size()) {
+                        GeoPosition p = stops.get(idx);
                         mapPanel.setCenter(p.getLatitude(), p.getLongitude());
                     }
                 }
@@ -614,104 +627,57 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
          });
      }
 
-    private void computeAndDisplayRoute() {
-        if (routingDao == null) {
+    private void triggerRouteComputation() {
+        if (generateRouteController == null) {
             JOptionPane.showMessageDialog(this, "Routing backend not configured.");
             return;
         }
 
-        // Need at least two stops to route through
-        if (stopPositions.size() < 2) {
-            JOptionPane.showMessageDialog(this, "Add at least two stops to compute a full route.");
-            return;
-        }
-
-        // show progress UI
         showRerouteProgress();
-
-        // Compute route segments between successive stops and pass segments to map so painter can render per-segment opacity
-        SwingWorker<List<List<org.jxmapviewer.viewer.GeoPosition>>, Void> worker = new SwingWorker<>() {
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
-            protected List<List<org.jxmapviewer.viewer.GeoPosition>> doInBackground() throws Exception {
-                List<List<org.jxmapviewer.viewer.GeoPosition>> segments = new ArrayList<>();
-                for (int i = 0; i < stopPositions.size() - 1; i++) {
-                    org.jxmapviewer.viewer.GeoPosition a = stopPositions.get(i);
-                    org.jxmapviewer.viewer.GeoPosition b = stopPositions.get(i + 1);
-                    try {
-                        List<org.jxmapviewer.viewer.GeoPosition> segment = routingDao.getRoute(a, b, "walking");
-                        if (segment != null && !segment.isEmpty()) {
-                            segments.add(segment);
-                        } else {
-                            List<org.jxmapviewer.viewer.GeoPosition> straight = new ArrayList<>();
-                            straight.add(a);
-                            straight.add(b);
-                            segments.add(straight);
-                        }
-                    } catch (Exception e) {
-                        List<org.jxmapviewer.viewer.GeoPosition> straight = new ArrayList<>();
-                        straight.add(a);
-                        straight.add(b);
-                        segments.add(straight);
-                    }
-                }
-                return segments;
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    List<List<org.jxmapviewer.viewer.GeoPosition>> segs = get();
-                    if (segs == null || segs.isEmpty()) {
-                        JOptionPane.showMessageDialog(SearchView.this, "No route found.");
-                    } else {
-                        mapPanel.setRouteSegments(segs);
-                    }
-                } catch (Exception e) {
-                    JOptionPane.showMessageDialog(SearchView.this, "Routing error: " + e.getMessage());
-                } finally {
-                    // always hide progress when the worker finishes
-                    hideRerouteProgress();
-                }
+            protected Void doInBackground() {
+                generateRouteController.generate("walking");
+                return null;
             }
         };
         worker.execute();
     }
 
     private void addStop(String name, GeoPosition gp) {
-        stopsListModel.addElement(name);
-        stopPositions.add(gp);
-        mapPanel.addStop(gp.getLatitude(), gp.getLongitude());
+        itineraryDataAccess.addStop(gp);
+        ItineraryState current = itineraryViewModel.getState();
+        ItineraryState newState = new ItineraryState(current);
+        List<String> names = new ArrayList<>(newState.getStopNames());
+        names.add(name);
+        newState.setStopNames(names);
+        newState.setStops(itineraryDataAccess.getStops());
+        newState.setErrorMessage(null);
+        itineraryViewModel.setState(newState);
+        itineraryViewModel.firePropertyChange("stops");
     }
 
     private void moveSelected(int delta) {
         int idx = stopsList.getSelectedIndex();
         if (idx == -1) return;
         int newIdx = idx + delta;
-        if (newIdx < 0 || newIdx >= stopsListModel.getSize()) return;
-        String item = stopsListModel.get(idx);
-        GeoPosition pos = stopPositions.get(idx);
-        stopsListModel.remove(idx);
-        stopPositions.remove(idx);
-        stopsListModel.add(newIdx, item);
-        stopPositions.add(newIdx, pos);
-        stopsList.setSelectedIndex(newIdx);
-        mapPanel.setStops(stopPositions);
-        computeAndDisplayRouteIfAuto();
+        if (reorderController != null) {
+            reorderController.move(idx, newIdx);
+        }
     }
 
     private void removeSelected() {
         int idx = stopsList.getSelectedIndex();
-        if (idx == -1) return;
-        stopsListModel.remove(idx);
-        stopPositions.remove(idx);
-        mapPanel.setStops(stopPositions);
-        computeAndDisplayRouteIfAuto();
+        if (removeMarkerController != null) {
+            removeMarkerController.removeAt(idx);
+        }
     }
 
     private void computeAndDisplayRouteIfAuto() {
-        if (routingDao != null && stopPositions.size() >= 2) {
-            computeAndDisplayRoute();
-        } else if (stopPositions.size() < 2) {
+        List<GeoPosition> stops = itineraryDataAccess.getStops();
+        if (generateRouteController != null && stops.size() >= 2) {
+            triggerRouteComputation();
+        } else if (stops.size() < 2) {
             mapPanel.clearRoute();
         }
     }
@@ -722,7 +688,15 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
 
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
-        final SearchState state = (SearchState) evt.getNewValue();
+        Object value = evt.getNewValue();
+        if (value instanceof SearchState state) {
+            handleSearchState(state);
+        } else if (value instanceof ItineraryState state) {
+            handleItineraryState(state, evt.getPropertyName());
+        }
+    }
+
+    private void handleSearchState(SearchState state) {
         setFields(state);
         if (state.getSearchError() != null) {
             JLabel label = new JLabel(state.getSearchError());
@@ -748,6 +722,33 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
         }
     }
 
+    private void handleItineraryState(ItineraryState state, String propertyName) {
+        if ("stops".equals(propertyName) || "state".equals(propertyName)) {
+            stopsListModel.clear();
+            for (String name : state.getStopNames()) {
+                stopsListModel.addElement(name);
+            }
+            if (!stopsListModel.isEmpty()) {
+                stopsList.setSelectedIndex(Math.max(0, Math.min(stopsListModel.size() - 1, stopsList.getSelectedIndex())));
+            }
+            mapPanel.setStops(state.getStops());
+            if (state.getStops().size() < 2) {
+                mapPanel.clearRoute();
+            }
+            computeAndDisplayRouteIfAuto();
+        }
+
+        if ("route".equals(propertyName)) {
+            mapPanel.setRouteSegments(state.getRouteSegments());
+            hideRerouteProgress();
+        }
+
+        if ("error".equals(propertyName) && state.getErrorMessage() != null) {
+            JOptionPane.showMessageDialog(this, state.getErrorMessage());
+            hideRerouteProgress();
+        }
+    }
+
     private void setFields(SearchState state) {
         searchInputField.setText(state.getLocationName());
     }
@@ -760,12 +761,19 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
         this.searchController = searchController;
     }
 
-    public void setRoutingDataAccessObject(RoutingDataAccessObject routingDao) {
-        this.routingDao = routingDao;
-    }
-
     public void setOsmDataAccessObject(OSMDataAccessObject osmDao) {
         this.osmDao = osmDao;
     }
 
+    public void setRemoveMarkerController(RemoveMarkerController removeMarkerController) {
+        this.removeMarkerController = removeMarkerController;
+    }
+
+    public void setReorderController(ReorderController reorderController) {
+        this.reorderController = reorderController;
+    }
+
+    public void setGenerateRouteController(GenerateRouteController generateRouteController) {
+        this.generateRouteController = generateRouteController;
+    }
 }
