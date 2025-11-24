@@ -13,8 +13,7 @@ stories:
 5. **Generate Route** – request an ordered route for all markers from the OSRM
    routing service.
 
-The stop list shared by these use cases is managed through an
-`ItineraryDataAccessInterface` gateway and an in-memory implementation. This
-gateway is a supporting contract, not a separate use case; it simply provides a
-single source of truth for stop positions so the five stories can collaborate
-without embedding storage concerns in the UI.
+The stop list shared by these use cases lives in the `SearchState` view model.
+Controllers pass the current stop names and coordinates straight into the
+interactors, keeping storage concerns out of the UI while avoiding an extra
+gateway abstraction.
