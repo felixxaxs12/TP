@@ -4,7 +4,6 @@ import data_access.InMemoryItineraryDataAccessObject;
 import data_access.OSMDataAccessObject;
 import data_access.RoutingDataAccessObject;
 import interface_adapter.ViewManagerModel;
-import interface_adapter.itinerary.ItineraryViewModel;
 import interface_adapter.generate_route.GenerateRouteController;
 import interface_adapter.generate_route.GenerateRoutePresenter;
 import interface_adapter.remove_marker.RemoveMarkerController;
@@ -17,7 +16,6 @@ import interface_adapter.search.SearchViewModel;
 import use_case.generate_route.GenerateRouteInputBoundary;
 import use_case.generate_route.GenerateRouteInteractor;
 import use_case.generate_route.GenerateRouteOutputBoundary;
-import use_case.itinerary.ItineraryDataAccessInterface;
 import use_case.remove_marker.RemoveMarkerInputBoundary;
 import use_case.remove_marker.RemoveMarkerInteractor;
 import use_case.remove_marker.RemoveMarkerOutputBoundary;
@@ -33,6 +31,12 @@ import javax.swing.*;
 import java.awt.*;
 import java.net.http.HttpClient;
 
+/**
+ * Configures and wires the application using the simplified Clean Architecture graph. The
+ * itinerary state is held in {@link SearchViewModel}, so the interactors operate directly on
+ * that model without an extra gateway. This keeps the merge-safe structure explicit and avoids
+ * dangling dependencies from older branches that referenced an itinerary DAO.
+ */
 public class AppBuilder {
 
     private final JPanel cardPanel = new JPanel();
@@ -72,19 +76,17 @@ public class AppBuilder {
 
         searchView.setOsmDataAccessObject(osmDataAccessObject);
 
-        final RemoveMarkerOutputBoundary removeOutputBoundary = new RemoveMarkerPresenter(itineraryViewModel);
-        final RemoveMarkerInputBoundary removeInteractor = new RemoveMarkerInteractor(itineraryDataAccessObject,
-                removeOutputBoundary);
+        final RemoveMarkerOutputBoundary removeOutputBoundary = new RemoveMarkerPresenter(searchViewModel);
+        final RemoveMarkerInputBoundary removeInteractor = new RemoveMarkerInteractor(removeOutputBoundary);
         searchView.setRemoveMarkerController(new RemoveMarkerController(removeInteractor));
 
-        final ReorderOutputBoundary reorderOutputBoundary = new ReorderPresenter(itineraryViewModel);
-        final ReorderInputBoundary reorderInteractor = new ReorderInteractor(itineraryDataAccessObject,
-                reorderOutputBoundary);
+        final ReorderOutputBoundary reorderOutputBoundary = new ReorderPresenter(searchViewModel);
+        final ReorderInputBoundary reorderInteractor = new ReorderInteractor(reorderOutputBoundary);
         searchView.setReorderController(new ReorderController(reorderInteractor));
 
-        final GenerateRouteOutputBoundary generateRoutePresenter = new GenerateRoutePresenter(itineraryViewModel);
-        final GenerateRouteInputBoundary generateRouteInteractor = new GenerateRouteInteractor(itineraryDataAccessObject,
-                routingDataAccessObject, generateRoutePresenter);
+        final GenerateRouteOutputBoundary generateRoutePresenter = new GenerateRoutePresenter(searchViewModel);
+        final GenerateRouteInputBoundary generateRouteInteractor = new GenerateRouteInteractor(routingDataAccessObject,
+                generateRoutePresenter);
         searchView.setGenerateRouteController(new GenerateRouteController(generateRouteInteractor));
 
         return this;

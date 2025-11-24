@@ -1,33 +1,32 @@
 package interface_adapter.generate_route;
 
-import interface_adapter.itinerary.ItineraryState;
-import interface_adapter.itinerary.ItineraryViewModel;
+import interface_adapter.search.SearchState;
+import interface_adapter.search.SearchViewModel;
 import use_case.generate_route.GenerateRouteOutputBoundary;
 import use_case.generate_route.GenerateRouteOutputData;
 
 public class GenerateRoutePresenter implements GenerateRouteOutputBoundary {
 
-    private final ItineraryViewModel itineraryViewModel;
+    private final SearchViewModel searchViewModel;
 
-    public GenerateRoutePresenter(ItineraryViewModel itineraryViewModel) {
-        this.itineraryViewModel = itineraryViewModel;
+    public GenerateRoutePresenter(SearchViewModel searchViewModel) {
+        this.searchViewModel = searchViewModel;
     }
 
     @Override
     public void prepareSuccessView(GenerateRouteOutputData outputData) {
-        ItineraryState newState = new ItineraryState(itineraryViewModel.getState());
+        SearchState newState = new SearchState(searchViewModel.getState());
         newState.setRouteSegments(outputData.getSegments());
         newState.setErrorMessage(null);
-        itineraryViewModel.setState(newState);
-        itineraryViewModel.firePropertyChange("route");
+        searchViewModel.setState(newState);
+        searchViewModel.firePropertyChange("route");
     }
 
     @Override
     public void prepareFailView(String error) {
-        ItineraryState newState = new ItineraryState(itineraryViewModel.getState());
-        newState.setRouteSegments(newState.getRouteSegments());
+        SearchState newState = new SearchState(searchViewModel.getState());
         newState.setErrorMessage(error);
-        itineraryViewModel.setState(newState);
-        itineraryViewModel.firePropertyChange("error");
+        searchViewModel.setState(newState);
+        searchViewModel.firePropertyChange("error");
     }
 }

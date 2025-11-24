@@ -1,27 +1,23 @@
 package use_case.generate_route;
 
 import org.jxmapviewer.viewer.GeoPosition;
-import use_case.itinerary.ItineraryDataAccessInterface;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class GenerateRouteInteractor implements GenerateRouteInputBoundary {
-    private final ItineraryDataAccessInterface itineraryDataAccessInterface;
     private final GenerateRouteRoutingDataAccessInterface routingDataAccessInterface;
     private final GenerateRouteOutputBoundary generateRoutePresenter;
 
-    public GenerateRouteInteractor(ItineraryDataAccessInterface itineraryDataAccessInterface,
-                                   GenerateRouteRoutingDataAccessInterface routingDataAccessInterface,
+    public GenerateRouteInteractor(GenerateRouteRoutingDataAccessInterface routingDataAccessInterface,
                                    GenerateRouteOutputBoundary generateRoutePresenter) {
-        this.itineraryDataAccessInterface = itineraryDataAccessInterface;
         this.routingDataAccessInterface = routingDataAccessInterface;
         this.generateRoutePresenter = generateRoutePresenter;
     }
 
     @Override
     public void execute(GenerateRouteInputData inputData) {
-        List<GeoPosition> stops = itineraryDataAccessInterface.getStops();
+        List<GeoPosition> stops = inputData.getStops();
         if (stops.size() < 2) {
             generateRoutePresenter.prepareFailView("Add at least two stops to compute a full route.");
             return;
