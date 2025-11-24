@@ -12,7 +12,9 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RoutingDataAccessObject {
+import use_case.generate_route.GenerateRouteRoutingDataAccessInterface;
+
+public class RoutingDataAccessObject implements GenerateRouteRoutingDataAccessInterface {
     private final HttpClient client;
 
     public RoutingDataAccessObject(HttpClient client) {
