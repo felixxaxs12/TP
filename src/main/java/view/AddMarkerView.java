@@ -1,7 +1,5 @@
 package view;
 
-import entity.Marker;
-import entity.Location;
 import interface_adapter.addMarker.AddMarkerController;
 import interface_adapter.addMarker.AddMarkerState;
 import interface_adapter.addMarker.AddMarkerViewModel;
@@ -80,18 +78,12 @@ public class AddMarkerView extends JPanel implements PropertyChangeListener {
             double lat = state.getLastMarkerLatitude();
             double lon = state.getLastMarkerLongitude();
 
-            Location location = new Location("", lat, lon);
-            Marker marker = new Marker(location);
-
-            addMarker(marker);
+            addMarker(lat, lon);
         }
     }
 
-    private void addMarker(Marker marker) {
-        GeoPosition gp = new GeoPosition(
-                marker.getLatitude(),
-                marker.getLongitude()
-        );
+    private void addMarker(double latitude, double longitude) {
+        GeoPosition gp = new GeoPosition(latitude, longitude);
 
         waypoints.add(new DefaultWaypoint(gp));
         waypointPainter.setWaypoints(waypoints);
@@ -103,7 +95,8 @@ public class AddMarkerView extends JPanel implements PropertyChangeListener {
             @Override
             public void mouseClicked(MouseEvent e) {
                 GeoPosition gp = mapViewer.convertPointToGeoPosition(e.getPoint());
-                addMarkerController.addMarker(gp.getLatitude(), gp.getLongitude());
+                String label = String.format("(%.5f, %.5f)", gp.getLatitude(), gp.getLongitude());
+                addMarkerController.addMarker(label, gp.getLatitude(), gp.getLongitude());
             }
         });
     }

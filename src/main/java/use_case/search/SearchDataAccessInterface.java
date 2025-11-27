@@ -15,4 +15,13 @@ public interface SearchDataAccessInterface {
     void setCurrentLocation(String locationName);
 
     String getCurrentLocationName();
+
+    java.util.List<Location> searchSuggestions(String query,
+                                               Double minLon,
+                                               Double minLat,
+                                               Double maxLon,
+                                               Double maxLat,
+                                               int limit) throws IOException, InterruptedException;
+
+    Location reverse(double latitude, double longitude) throws IOException, InterruptedException;
 }

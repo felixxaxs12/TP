@@ -38,4 +38,44 @@ public class SearchInteractor implements SearchInputBoundary {
             searchPresenter.prepareFailView("Unexpected error: " + e.getMessage());
         }
     }
+
+    @Override
+    public void executeSuggestions(SearchSuggestionsInputData inputData) {
+        try {
+            java.util.List<Location> locations = searchDataAccessObj.searchSuggestions(
+                    inputData.getQuery(),
+                    inputData.getMinLon(),
+                    inputData.getMinLat(),
+                    inputData.getMaxLon(),
+                    inputData.getMaxLat(),
+                    inputData.getLimit());
+
+            java.util.List<SearchSuggestionDto> suggestions = new java.util.ArrayList<>();
+            for (Location location : locations) {
+                suggestions.add(new SearchSuggestionDto(
+                        location.getName(),
+                        location.getLatitude(),
+                        location.getLongitude()));
+            }
+            searchPresenter.presentSuggestions(new SearchSuggestionsOutputData(suggestions));
+        } catch (IOException | InterruptedException e) {
+            searchPresenter.presentSuggestions(new SearchSuggestionsOutputData(java.util.Collections.emptyList()));
+        }
+    }
+
+    @Override
+    public void reverseLookup(ReverseLookupInputData inputData) {
+        try {
+            Location location = searchDataAccessObj.reverse(inputData.getLatitude(), inputData.getLongitude());
+            SearchSuggestionDto dto = new SearchSuggestionDto(
+                    location.getName(),
+                    location.getLatitude(),
+                    location.getLongitude());
+            searchPresenter.presentReverseLookup(new ReverseLookupOutputData(dto));
+        } catch (IOException | InterruptedException e) {
+            String fallbackName = String.format("%.5f, %.5f", inputData.getLatitude(), inputData.getLongitude());
+            SearchSuggestionDto dto = new SearchSuggestionDto(fallbackName, inputData.getLatitude(), inputData.getLongitude());
+            searchPresenter.presentReverseLookup(new ReverseLookupOutputData(dto));
+        }
+    }
 }

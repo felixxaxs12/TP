@@ -17,8 +17,9 @@ public class AddMarkerInteractor implements AddMarkerInputBoundary {
     public void execute(AddMarkerInputData inputData) {
         double lat = inputData.getLatitude();
         double lon = inputData.getLongitude();
+        String name = inputData.getName();
 
-        Location location = new Location("", lat, lon);
+        Location location = new Location(name, lat, lon);
 
         if (addMarkerAccessObj.exists(location)) {
             addMarkerPresenter.prepareFailView("A marker already exists at this location");
@@ -29,7 +30,7 @@ public class AddMarkerInteractor implements AddMarkerInputBoundary {
         addMarkerAccessObj.save(marker);
 
         AddMarkerOutputData outputData=
-                new  AddMarkerOutputData(lat, lon);
+                new  AddMarkerOutputData(name, lat, lon);
         addMarkerPresenter.prepareSuccessView(outputData);
     }
 
