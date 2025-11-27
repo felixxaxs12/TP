@@ -95,7 +95,8 @@ public class AddMarkerView extends JPanel implements PropertyChangeListener {
             @Override
             public void mouseClicked(MouseEvent e) {
                 GeoPosition gp = mapViewer.convertPointToGeoPosition(e.getPoint());
-                addMarkerController.addMarker(gp.getLatitude(), gp.getLongitude());
+                String label = String.format("(%.5f, %.5f)", gp.getLatitude(), gp.getLongitude());
+                addMarkerController.addMarker(label, gp.getLatitude(), gp.getLongitude());
             }
         });
     }

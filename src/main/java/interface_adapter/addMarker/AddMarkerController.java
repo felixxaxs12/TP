@@ -10,8 +10,8 @@ public class AddMarkerController {
         this.addMarkerInputBoundary = addMarkerInputBoundary;
     }
 
-    public void addMarker(double latitude, double longitude) {
-        AddMarkerInputData inputData = new AddMarkerInputData(latitude, longitude);
+    public void addMarker(String name, double latitude, double longitude) {
+        AddMarkerInputData inputData = new AddMarkerInputData(name, latitude, longitude);
         addMarkerInputBoundary.execute(inputData);
     }
 }

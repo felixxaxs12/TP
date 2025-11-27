@@ -704,7 +704,7 @@ public class SearchView extends JPanel implements ActionListener, PropertyChange
             }, AWTEvent.MOUSE_EVENT_MASK);
         } else {
             mapPanel.setCenter(state.getLatitude(), state.getLongitude());
-            addStop(state.getLocationName(), new GeoPosition(state.getLatitude(), state.getLongitude()));
+            requestAddStop(state.getLocationName(), new GeoPosition(state.getLatitude(), state.getLongitude()));
             computeAndDisplayRouteIfAuto();
         }
     }
